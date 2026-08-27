@@ -24,7 +24,7 @@
 - [ ] 添加贡献指南 (CONTRIBUTING.md)
 
 ### 5. 发布准备
-- [ ] 创建 GitHub Release 流程
+- [x] 创建 GitHub Release 流程
 - [ ] 添加自动构建工作流 (GitHub Actions)
 - [ ] 准备版本发布说明
 
