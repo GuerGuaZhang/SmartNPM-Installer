@@ -2,15 +2,6 @@
 
 > 🔧 智能 npm 包安装器 — 自动修复环境问题，一键完成安装
 
-在 Windows 上用 `npx` 或 `npm install -g` 安装 npm 包时，你是否经常遇到这些问题？
-
-- `npm 10+` 默认禁止 `postinstall` 脚本，导致 `node-pty`、`koffi`、`sharp` 等含原生 C++ 模块的包安装后功能残缺
-- 默认 registry 为官方源，国内下载慢、易超时
-- 缺少 Python / Visual C++ Build Tools 时，原生模块编译失败，报错信息晦涩
-- `npx` 每次都会重新下载/检查版本，不稳定且慢
-
-**SNI 就是为了解决这些问题而生的。** 双击打开，粘贴命令，自动完成一切。
-
 ## ✨ 特性
 
 - 🔄 **智能命令解析** — 支持 `npx`、`npm install -g`、纯包名三种输入方式
