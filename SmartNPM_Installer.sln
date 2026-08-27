@@ -7,6 +7,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "SmartNPM_Installer", "Smart
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartNPM_Installer", "SmartNPM_Installer\SmartNPM_Installer\SmartNPM_Installer.csproj", "{CF3BED49-B180-4DF5-931C-B400995DFA7C}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SmartNPM_Installer.Tests", "SmartNPM_Installer.Tests\SmartNPM_Installer.Tests.csproj", "{EDE568CA-79C1-4A5F-8762-19D371AADEF4}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -20,6 +22,10 @@ Global
 		{CF3BED49-B180-4DF5-931C-B400995DFA7C}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{CF3BED49-B180-4DF5-931C-B400995DFA7C}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{CF3BED49-B180-4DF5-931C-B400995DFA7C}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EDE568CA-79C1-4A5F-8762-19D371AADEF4}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EDE568CA-79C1-4A5F-8762-19D371AADEF4}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EDE568CA-79C1-4A5F-8762-19D371AADEF4}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EDE568CA-79C1-4A5F-8762-19D371AADEF4}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(NestedProjects) = preSolution
 		{CF3BED49-B180-4DF5-931C-B400995DFA7C} = {DE82B5CD-57B1-4F36-A45A-77320138FDD8}

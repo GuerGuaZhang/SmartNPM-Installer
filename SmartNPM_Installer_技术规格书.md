@@ -905,3 +905,145 @@ npm ERR! gyp ERR! find VS ******************************************************
 ---
 
 **文档结束。请基于此规格书进行编码实现。**
+
+---
+
+## 17. 项目最新进展与功能说明
+
+### 17.1 已实现功能
+
+#### 核心功能
+- ✅ **智能命令解析** — 支持 `npx`、`npm install -g`、纯包名三种输入方式，自动识别作用域包和版本号
+- ✅ **环境自动扫描** — 检测 Node.js/npm 版本、当前 registry、allow-scripts 状态、Python/VC++ Build Tools
+- ✅ **Registry 自动切换** — 检测到非国内源时自动切换到 npmmirror
+- ✅ **allow-scripts 自动修复** — 检测到阻断时自动追加白名单并重试，无需用户干预
+- ✅ **错误自愈引擎** — 实时捕获 stderr，自动匹配错误模式并修复重试
+
+#### 交互界面
+- ✅ **REPL 交互界面** — 彩色输出、进度条、内部命令系统（/help /scan /config /history 等）
+- ✅ **配置外置** — sni-config.json 持久化用户偏好，支持运行时修改
+- ✅ **日志系统** — 按日期分割文件日志，保留30天
+
+#### 高级功能
+- ✅ **原生模块预判** — 安装前分析依赖树，提前准备编译环境
+- ✅ **子命令执行** — 安装完成后询问是否立即运行原始子命令
+- ✅ **单文件便携** — 一个 `SmartInstall.exe`，U 盘随插随用，零安装
+
+### 17.2 错误自愈引擎支持的错误类型
+
+| 错误类型 | 优先级 | 自动修复 | 描述 |
+|---------|--------|---------|------|
+| AllowScriptsBlocked | P0 | ✅ | allow-scripts 阻止了安装脚本执行 |
+| NetworkError | P0 | ✅ | 网络连接超时或失败 |
+| BuildToolsMissing | P1 | ⚠️ | 缺少 Visual C++ Build Tools |
+| PythonMissing | P1 | ⚠️ | 缺少 Python 环境 |
+| PermissionError | P2 | ❌ | 权限不足，需要管理员运行 |
+| PackageNotFound | P2 | ❌ | 包不存在或名称错误 |
+| VersionNotFound | P2 | ❌ | 指定版本不存在 |
+| Deprecated | P3 | ❌ | 包已弃用 |
+
+### 17.3 内部命令列表
+
+| 命令 | 说明 |
+|------|------|
+| `/help` 或 `/?` | 显示帮助信息 |
+| `/scan` | 重新执行环境扫描 |
+| `/config` | 显示当前配置 |
+| `/config set <key> <value>` | 修改配置项 |
+| `/fix env` | 手动触发环境修复 |
+| `/fix buildtools` | 手动安装 Build Tools（通过 winget） |
+| `/history` | 显示本次会话的安装历史 |
+| `/backup` | 备份当前 `.npmrc` |
+| `/restore` | 从最近的备份恢复 `.npmrc` |
+| `/clear` 或 `cls` | 清屏 |
+| `exit` / `quit` | 保存状态并退出 |
+
+### 17.4 单元测试覆盖
+
+项目包含完整的单元测试套件，覆盖以下模块：
+
+- **CommandParserTests** — 命令解析器测试（13个测试用例）
+- **EnvScannerTests** — 环境扫描器测试（6个测试用例）
+- **ErrorHealerTests** — 错误自愈引擎测试（6个测试用例）
+- **ConfigManagerTests** — 配置管理器测试（5个测试用例）
+- **LoggerTests** — 日志系统测试（8个测试用例）
+
+运行测试：
+```bash
+dotnet test
+```
+
+### 17.5 项目结构
+
+```
+SmartInstaller/
+├── SmartNPM_Installer/           # 主解决方案目录
+│   ├── SmartNPM_Installer/       # 项目源代码
+│   │   ├── Models/               # 数据模型
+│   │   │   ├── ParsedCommand.cs  # 解析后的命令对象
+│   │   │   ├── EnvStatus.cs      # 环境扫描结果
+│   │   │   ├── InstallResult.cs  # 安装结果
+│   │   │   └── HealingResult.cs  # 错误修复结果
+│   │   ├── Services/             # 核心服务
+│   │   │   ├── CommandParser.cs  # 命令解析器
+│   │   │   ├── EnvScanner.cs     # 环境扫描器
+│   │   │   ├── ConfigManager.cs  # .npmrc 配置管理
+│   │   │   ├── InstallExecutor.cs # 安装执行器
+│   │   │   ├── ErrorHealer.cs    # 错误自愈引擎
+│   │   │   └── ReplEngine.cs     # REPL 交互引擎
+│   │   ├── Utils/                # 工具类
+│   │   │   └── Logger.cs         # 日志系统
+│   │   └── Program.cs            # 入口文件
+│   └── SmartNPM_Installer.csproj # 项目文件
+├── SmartNPM_Installer.Tests/     # 单元测试项目
+│   ├── CommandParserTests.cs
+│   ├── EnvScannerTests.cs
+│   ├── ErrorHealerTests.cs
+│   ├── ConfigManagerTests.cs
+│   ├── LoggerTests.cs
+│   └── SmartNPM_Installer.Tests.csproj
+├── SmartNPM_Installer.sln        # 解决方案文件
+├── README.md                     # 项目文档
+├── RELEASE.md                    # 发布文档
+├── TODO.md                       # 待办事项
+└── SmartNPM_Installer_技术规格书.md # 技术规格书
+```
+
+### 17.6 构建与发布
+
+#### 开发构建
+```bash
+dotnet build
+```
+
+#### 运行测试
+```bash
+dotnet test
+```
+
+#### 发布构建
+```bash
+dotnet publish -c Release -r win-x64 `
+  --self-contained true `
+  -p:PublishSingleFile=true `
+  -p:PublishTrimmed=true `
+  -p:TrimMode=partial `
+  -p:EnableCompressionInSingleFile=true
+```
+
+产出：`SmartInstall.exe`（≤ 15MB）
+
+### 17.7 配置项说明
+
+| 配置项 | 类型 | 默认值 | 说明 |
+|--------|------|--------|------|
+| registry | string | https://registry.npmmirror.com | npm registry 地址 |
+| allowScriptsWhitelist | string[] | [node-pty, koffi, sharp, ...] | 允许执行脚本的包列表 |
+| autoInstallBuildTools | bool | true | 是否自动安装 Build Tools |
+| maxRetryCount | int | 3 | 最大重试次数 |
+| preferGlobalInstall | bool | true | 优先使用全局安装 |
+| subCommandAutoRun | bool | false | 安装后是否自动运行子命令 |
+| npmCacheDir | string | ./sni-cache | npm 缓存目录 |
+
+---
+*文档更新时间: 2026-08-27*

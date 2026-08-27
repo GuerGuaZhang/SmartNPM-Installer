@@ -22,4 +22,4 @@
 - 实现安装执行器（InstallExecutor）支持子进程管理和实时输出捕获
 - 实现错误自愈引擎（ErrorHealer）支持 6 种错误模式匹配
 - 实现 REPL 交互引擎（ReplEngine）支持 11 个内部命令
-- 重写 README.md 文档，提供更详细的使用说明和项目结构
+- 更新 README.md 和 .gitignore 文件
