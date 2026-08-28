@@ -31,7 +31,8 @@ namespace SmartNPM_Installer.Services
                 "node-pty", "koffi", "sharp", "bcrypt",
                 "better-sqlite3", "sqlite3", "canvas",
                 "node-sass", "sass", "esbuild", "electron",
-                "@deepseek-ai/dsh-subprocess-local"
+                "@deepseek-ai/dsh-subprocess-local",
+                "@anthropic-ai/claude-code"
             },
             AutoInstallBuildTools = true,
             NpmCacheDir = "./sni-cache",

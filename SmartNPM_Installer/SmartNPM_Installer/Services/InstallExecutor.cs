@@ -72,11 +72,9 @@ namespace SmartNPM_Installer.Services
             var additionalPaths = string.Join(";", nodePaths.Where(p => !currentPath.Contains(p)));
             var fullPath = $"{currentPath};{additionalPaths}";
 
-            // 设置 npm 缓存和临时目录到用户目录
+            // 设置 npm 缓存目录到用户目录
             var npmCacheDir = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".sni-cache");
-            var npmTmpDir = Path.Combine(Path.GetTempPath(), "sni-npm-tmp");
             Directory.CreateDirectory(npmCacheDir);
-            Directory.CreateDirectory(npmTmpDir);
 
             // 使用 cmd.exe /c 来执行 npm 命令
             var psi = new ProcessStartInfo
@@ -91,7 +89,6 @@ namespace SmartNPM_Installer.Services
                 EnvironmentVariables = {
                     ["PATH"] = fullPath,
                     ["npm_config_cache"] = npmCacheDir,
-                    ["npm_config_tmp"] = npmTmpDir,
                     ["npm_config_registry"] = "https://registry.npmmirror.com"
                 }
             };
