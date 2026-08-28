@@ -1,5 +1,6 @@
 using System;
 using System.Threading.Tasks;
+using Spectre.Console;
 using SmartNPM_Installer.Services;
 
 namespace SmartNPM_Installer
@@ -15,10 +16,19 @@ namespace SmartNPM_Installer
             }
             catch (Exception ex)
             {
-                Console.ForegroundColor = ConsoleColor.Red;
-                Console.WriteLine($"程序异常退出: {ex.Message}");
-                Console.ResetColor();
+                AnsiConsole.MarkupLine($"[red]Program error: {EscapeMarkup(ex.Message)}[/]");
+                AnsiConsole.MarkupLine($"[grey]{EscapeMarkup(ex.StackTrace ?? "")}[/]");
+                AnsiConsole.MarkupLine("\n[yellow]Press Enter to exit...[/]");
+                Console.ReadLine();
             }
+        }
+
+        /// <summary>
+        /// 转义 Spectre.Console 标记字符
+        /// </summary>
+        private static string EscapeMarkup(string text)
+        {
+            return text.Replace("[", "[[").Replace("]", "]]");
         }
     }
 }

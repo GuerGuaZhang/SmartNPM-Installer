@@ -118,30 +118,26 @@ namespace SmartNPM_Installer.Services
         /// <summary>
         /// 自动切换到国内镜像源
         /// </summary>
-        /// <param name="configManager">配置管理器</param>
+        /// <param name="currentRegistry">当前 registry</param>
         /// <returns>是否切换成功</returns>
-        public static bool AutoSwitchToMirror(ConfigManager configManager)
+        public static bool AutoSwitchToMirror(string currentRegistry)
         {
-            var currentRegistry = configManager.CurrentConfig.Registry;
-            
             // 如果已经是国内镜像，直接返回
             if (IsMirrorRegistry(currentRegistry))
                 return true;
 
             // 切换到国内镜像
-            AnsiConsole.MarkupLine("[yellow]检测到非国内镜像源，正在自动切换到 npmmirror...[/]");
+            AnsiConsole.MarkupLine("[yellow]Detected non-China registry, switching to npmmirror...[/]");
             
             var result = RunCommand("npm", $"config set registry {DefaultMirrorRegistry} --location=user");
             if (result.ExitCode == 0)
             {
-                configManager.CurrentConfig.Registry = DefaultMirrorRegistry;
-                configManager.SaveConfig();
-                AnsiConsole.MarkupLine($"[green]✓[/] Registry 已切换到: {DefaultMirrorRegistry}");
+                AnsiConsole.MarkupLine($"[green]OK[/] Registry switched to: {DefaultMirrorRegistry}");
                 return true;
             }
             else
             {
-                AnsiConsole.MarkupLine($"[red]✗[/] 切换失败: {result.Error}");
+                AnsiConsole.MarkupLine($"[red]XX[/] Switch failed: {result.Error}");
                 return false;
             }
         }
@@ -209,17 +205,37 @@ namespace SmartNPM_Installer.Services
         {
             try
             {
+                // 构建完整的 PATH，包含常见的 Node.js 和 npm 安装路径
+                var nodePaths = new[] {
+                    @"C:\Program Files\nodejs",
+                    @"C:\Program Files (x86)\nodejs",
+                    @"C:\Users\" + Environment.UserName + @"\AppData\Roaming\npm",
+                    @"C:\Users\" + Environment.UserName + @"\AppData\Local\Programs\nodejs"
+                };
+                var currentPath = Environment.GetEnvironmentVariable("PATH") ?? "";
+                var additionalPaths = string.Join(";", nodePaths.Where(p => !currentPath.Contains(p)));
+                var fullPath = $"{currentPath};{additionalPaths}";
+
+                // 对于 npm/node，使用 cmd /c 来执行，因为 npm 可能是 .ps1 或 .cmd 文件
+                var actualFileName = fileName;
+                var actualArguments = arguments;
+                if (fileName.Equals("npm", StringComparison.OrdinalIgnoreCase) || 
+                    fileName.Equals("npx", StringComparison.OrdinalIgnoreCase))
+                {
+                    actualFileName = "cmd.exe";
+                    actualArguments = $"/c {fileName} {arguments}";
+                }
+
                 var psi = new ProcessStartInfo
                 {
-                    FileName = fileName,
-                    Arguments = arguments,
+                    FileName = actualFileName,
+                    Arguments = actualArguments,
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
                     CreateNoWindow = true,
-                    // 增加环境变量路径，确保能找到 npm
                     EnvironmentVariables = {
-                        ["PATH"] = Environment.GetEnvironmentVariable("PATH") + @";C:\Program Files\nodejs;C:\Program Files (x86)\nodejs"
+                        ["PATH"] = fullPath
                     }
                 };
 
@@ -253,49 +269,56 @@ namespace SmartNPM_Installer.Services
                 .AddColumn(new TableColumn("[bold]Result[/]").Centered());
 
             // Node.js
-            var nodeStatus = status.NodeInstalled ? status.NodeVersion ?? "[green]Installed[/]" : "[red]Not installed[/]";
-            var nodeResult = status.NodeInstalled ? "[green]✓[/]" : "[red]✗[/]";
-            table.AddRow("Node.js", nodeStatus, nodeResult);
+            var nodeStatus = status.NodeInstalled ? (status.NodeVersion ?? "Installed") : "Not installed";
+            var nodeResult = status.NodeInstalled ? "[green]OK[/]" : "[red]XX[/]";
+            table.AddRow("Node.js", Markup.Escape(nodeStatus), nodeResult);
 
             // npm
-            var npmStatus = status.NpmVersion != null ? status.NpmVersion : "[red]Not installed[/]";
-            var npmResult = status.NpmVersion != null ? "[green]✓[/]" : "[red]✗[/]";
-            table.AddRow("npm", npmStatus, npmResult);
+            var npmStatus = status.NpmVersion ?? "Not installed";
+            var npmResult = status.NpmVersion != null ? "[green]OK[/]" : "[red]XX[/]";
+            table.AddRow("npm", Markup.Escape(npmStatus), npmResult);
 
             // Registry
             var registryStatus = status.CurrentRegistry;
             if (registryStatus.Length > 35)
                 registryStatus = "..." + registryStatus.Substring(registryStatus.Length - 32);
-            var registryResult = status.IsRegistryMirror ? "[green]✓[/]" : "[yellow]⚠[/]";
-            table.AddRow("Registry", registryStatus, registryResult);
+            var registryResult = status.IsRegistryMirror ? "[green]OK[/]" : "[yellow]!![/]";
+            table.AddRow("Registry", Markup.Escape(registryStatus), registryResult);
 
             // Allow-scripts
-            var allowScriptsStatus = "Not configured";
+            string allowScriptsStatus;
             if (status.CurrentAllowScripts == "true")
-                allowScriptsStatus = "[green]Fully trusted[/]";
+                allowScriptsStatus = "Fully trusted";
             else if (!string.IsNullOrEmpty(status.CurrentAllowScripts))
-                allowScriptsStatus = $"[green]Configured[/] ({status.CurrentAllowScripts.Split(',').Length} items)";
-            var allowScriptsResult = status.CurrentAllowScripts != null ? "[green]✓[/]" : "[yellow]⚠[/]";
+                allowScriptsStatus = $"Configured ({status.CurrentAllowScripts.Split(',').Length} items)";
+            else
+                allowScriptsStatus = "Not configured";
+            
+            var allowScriptsResult = status.CurrentAllowScripts != null ? "[green]OK[/]" : "[yellow]!![/]";
             table.AddRow("Allow-scripts", allowScriptsStatus, allowScriptsResult);
 
             // Python
-            var pythonStatus = status.HasPython ? "[green]Installed[/]" : "[yellow]Not installed[/]";
-            var pythonResult = status.HasPython ? "[green]✓[/]" : "[yellow]⚠[/]";
+            string pythonStatus;
             if (status.HasPython && !string.IsNullOrEmpty(status.PythonPath))
             {
                 pythonStatus = status.PythonPath;
                 if (pythonStatus.Length > 35)
                     pythonStatus = "..." + pythonStatus.Substring(pythonStatus.Length - 32);
             }
-            table.AddRow("Python", pythonStatus, pythonResult);
+            else
+            {
+                pythonStatus = status.HasPython ? "Installed" : "Not installed";
+            }
+            var pythonResult = status.HasPython ? "[green]OK[/]" : "[yellow]!![/]";
+            table.AddRow("Python", Markup.Escape(pythonStatus), pythonResult);
 
             // Build Tools
-            var buildToolsStatus = status.HasBuildTools ? "[green]Installed[/]" : "[yellow]Not detected[/]";
-            var buildToolsResult = status.HasBuildTools ? "[green]✓[/]" : "[yellow]⚠[/]";
+            var buildToolsStatus = status.HasBuildTools ? "Installed" : "Not detected";
+            var buildToolsResult = status.HasBuildTools ? "[green]OK[/]" : "[yellow]!![/]";
             table.AddRow("VC++ Build Tools", buildToolsStatus, buildToolsResult);
 
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[bold blue][System Scan Results][/]");
+            AnsiConsole.MarkupLine("[bold blue]System Scan Results[/]");
             AnsiConsole.Write(table);
 
             // HTTP 代理

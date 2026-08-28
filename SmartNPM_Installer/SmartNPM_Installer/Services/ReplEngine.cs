@@ -54,7 +54,7 @@ namespace SmartNPM_Installer.Services
             // 自动切换到国内镜像源
             if (!_envStatus.IsRegistryMirror)
             {
-                EnvScanner.AutoSwitchToMirror(_configManager);
+                EnvScanner.AutoSwitchToMirror(_envStatus.CurrentRegistry);
                 // 重新扫描以更新状态
                 _envStatus = EnvScanner.Scan();
             }
@@ -66,7 +66,7 @@ namespace SmartNPM_Installer.Services
             // 主循环
             while (true)
             {
-                AnsiConsole.Write("[green]smart-install>[/] ");
+                Console.Write("smart-install> ");
                 var input = Console.ReadLine()?.Trim();
 
                 if (string.IsNullOrEmpty(input))
@@ -99,15 +99,8 @@ namespace SmartNPM_Installer.Services
         private void PrintBanner()
         {
             AnsiConsole.Clear();
-            var rule = new Rule("[bold cyan]Smart NPM Installer (SNI) v1.0[/]")
-                .RuleStyle("cyan");
-            AnsiConsole.Write(rule);
-            
-            var panel = new Panel("[grey]Paste npx/npm command, auto-fix & install[/]")
-                .Border(BoxBorder.Rounded)
-                .BorderColor(Color.Cyan)
-                .Padding(2, 0);
-            AnsiConsole.Write(panel);
+            AnsiConsole.MarkupLine("[bold cyan]Smart NPM Installer (SNI) v1.0[/]");
+            AnsiConsole.MarkupLine("[grey]Paste npx/npm command, auto-fix & install[/]");
             AnsiConsole.WriteLine();
         }
 
@@ -121,7 +114,7 @@ namespace SmartNPM_Installer.Services
 
             // 配置状态
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[bold blue][Config Status][/]");
+            AnsiConsole.MarkupLine("[bold blue]Config Status[/]");
             
             var registryColor = _envStatus.IsRegistryMirror ? "green" : "yellow";
             var allowScriptsColor = _envStatus.CurrentAllowScripts != null ? "green" : "yellow";
@@ -243,7 +236,7 @@ namespace SmartNPM_Installer.Services
             table.AddRow("exit, quit", "Exit program");
 
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[bold blue][Commands][/]");
+            AnsiConsole.MarkupLine("[bold blue]Commands[/]");
             AnsiConsole.Write(table);
             AnsiConsole.WriteLine();
         }
@@ -299,7 +292,7 @@ namespace SmartNPM_Installer.Services
             }
 
             AnsiConsole.WriteLine();
-            AnsiConsole.MarkupLine("[bold blue][Install History (last 10)][/]");
+            AnsiConsole.MarkupLine("[bold blue]Install History (last 10)[/]");
             AnsiConsole.Write(table);
             AnsiConsole.WriteLine();
         }
@@ -314,7 +307,7 @@ namespace SmartNPM_Installer.Services
             // 切换到国内镜像源
             if (!_envStatus.IsRegistryMirror)
             {
-                EnvScanner.AutoSwitchToMirror(_configManager);
+                EnvScanner.AutoSwitchToMirror(_envStatus.CurrentRegistry);
             }
             
             // 重新扫描
