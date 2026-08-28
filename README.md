@@ -2,13 +2,15 @@
 
 > 🔧 智能 npm 包安装器 — 自动修复环境问题，一键完成安装
 
+![icon](favicon.ico)
+
 ## ✨ 特性
 
 - 🔄 **智能命令解析** — 支持 `npx`、`npm install -g`、纯包名三种输入方式
 - 🛠️ **环境自动修复** — 自动切换国内镜像源、追加 `allow-scripts` 白名单
 - 🔍 **原生模块预判** — 安装前分析依赖树，提前准备编译环境
 - 🩹 **错误自愈引擎** — 实时捕获 stderr，自动匹配错误模式并修复重试
-- 📊 **可视化进度** — 彩色进度条实时展示安装阶段
+- 📊 **可视化进度** — 彩色输出实时展示安装阶段
 - ⚙️ **安全配置管理** — 幂等修改 `.npmrc`，修改前自动备份
 - 📦 **单文件便携** — 一个 `SmartInstall.exe`，U 盘随插随用，零安装
 
@@ -21,32 +23,53 @@
 
 ### 使用方式
 
-1. 下载 `SmartInstall.exe`（约 15MB）
+1. 下载 `SmartInstall.exe`（约 10MB）
 2. 双击运行
-3. 在提示符后粘贴任意 `npx` / `npm install` 命令
+3. 在提示符后粘贴任意 `npx` / `npm` 命令
 
 ```
-╔══════════════════════════════════════════════════╗
-║  Smart NPM Installer (SNI) v1.0                 ║
-║  粘贴 npx/npm 命令，自动完成环境修复与全局安装   ║
-╚══════════════════════════════════════════════════╝
+Smart NPM Installer (SNI) v2.0
+Paste npx/npm command, auto-fix & install
 
-[系统扫描结果]
-│ Node.js    │ v20.11.0                          │ ✓ │
-│ npm        │ v10.5.0                           │ ✓ │
-│ Registry   │ https://registry.npmmirror.com    │ ✓ │
-│ Build Tools│ 未检测到                          │ ⚠ │
+System Scan Results
++---------------------+--------------------------------+--------+
+| Item                | Status                         | Result |
++---------------------+--------------------------------+--------+
+| Node.js             | v24.19.0                       |   OK   |
+| npm                 | 12.0.2                         |   OK   |
+| Registry            | https://registry.npmmirror.com |   OK   |
+| Allow-scripts       | Configured (16 items)          |   OK   |
+| Python              | Installed                      |   OK   |
+| VC++ Build Tools    | Installed                      |   OK   |
++---------------------+--------------------------------+--------+
 
-smart-install> npx @deepseek-ai/dsh web
-▶ 依赖分析...
-   ⚠ 预判到原生模块依赖: node-pty, koffi
-▶ 开始安装...
-[████████████████████] 安装完成 ✓  耗时 42s
+smart-install> npm install -g @vue/cli
+Executing: npm install -g @vue/cli
+changed 844 packages in 30s
+OK Installation successful!
+```
+
+### 支持的命令
+
+```bash
+# 安装包
+npm install -g typescript
+npm install -g @vue/cli
+nodemon
+
+# 查看已安装的包
+npm list -g --depth=0
+
+# 查看包版本
+npm view typescript version
+
+# 更新所有包
+npm update -g
 ```
 
 ### 编译发布
 
-如果你需要自行编译：
+如果你想自行编译：
 
 ```bash
 dotnet publish -c Release -r win-x64 `
@@ -57,7 +80,7 @@ dotnet publish -c Release -r win-x64 `
   -p:EnableCompressionInSingleFile=true
 ```
 
-产出：`SmartInstall.exe`（≤ 15MB）
+产出：`SmartInstall.exe`（约 10MB）
 
 ## 📁 项目结构
 
@@ -81,8 +104,11 @@ SmartInstaller/
 │   │   │   └── Logger.cs             # 日志系统
 │   │   └── Program.cs                # 入口文件
 │   └── SmartNPM_Installer.csproj
+├── SmartNPM_Installer.Tests/         # 单元测试项目
 ├── SmartNPM_Installer.sln
-└── SmartNPM_Installer_技术规格书.md
+├── README.md
+├── RELEASE.md
+└── favicon.ico                       # 程序图标
 ```
 
 ## 📋 内部命令
@@ -127,7 +153,7 @@ SmartInstall.exe
 ├── sni-config.json      # 用户偏好配置（持久化）
 ├── sni-state.json       # 会话状态（安装历史）
 └── sni-logs/
-    └── 2026-08-24.log   # 按日期分割的文本日志
+    └── 2026-08-28.log   # 按日期分割的文本日志
 ```
 
 ## ❓ 常见问题
@@ -144,6 +170,14 @@ A: 在提示符中输入 `/config set registry https://registry.npmjs.org`。
 ### Q: 安装 Build Tools 后需要重启吗？
 A: 是的。Build Tools 安装完成后需要关闭并重新打开 SNI，让环境变量生效。
 
+### Q: 为什么有这么多 deprecated 警告？
+A: 这些警告来自 npm 包的依赖，不是 SmartInstaller 的问题。它们不影响使用，只是官方建议迁移到新版本。
+
 ## 📄 许可
 
 MIT License
+
+## 🔗 相关链接
+
+- [GitHub 仓库](https://github.com/GuerGuaZhang/SmartNPM-Installer)
+- [下载 Release](https://github.com/GuerGuaZhang/SmartNPM-Installer/releases)

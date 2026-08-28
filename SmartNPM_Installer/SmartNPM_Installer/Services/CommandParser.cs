@@ -58,10 +58,16 @@ namespace SmartNPM_Installer.Services
             {
                 command.Source = InstallSource.Npx;
             }
-            else if (input.StartsWith("npm", StringComparison.OrdinalIgnoreCase) &&
-                     (input.Contains("install") || input.Contains(" i ")))
+            else if (input.StartsWith("npm install", StringComparison.OrdinalIgnoreCase) ||
+                     input.StartsWith("npm i ", StringComparison.OrdinalIgnoreCase) ||
+                     input == "npm i")
             {
                 command.Source = InstallSource.NpmInstall;
+            }
+            else if (input.StartsWith("npm ", StringComparison.OrdinalIgnoreCase))
+            {
+                // 其他 npm 命令（如 npm list, npm view 等）
+                command.Source = InstallSource.NpmOther;
             }
             else
             {
@@ -151,7 +157,7 @@ namespace SmartNPM_Installer.Services
         /// <returns>完整的 npm install 命令</returns>
         public static string BuildInstallCommand(ParsedCommand command)
         {
-            var sb = new System.Text.StringBuilder("npm install -g --allow-scripts ");
+            var sb = new System.Text.StringBuilder("npm install -g ");
 
             if (command.IsScoped)
             {

@@ -59,6 +59,13 @@ namespace SmartNPM_Installer.Services
                 _envStatus = EnvScanner.Scan();
             }
             
+            // 自动应用默认白名单配置
+            var defaultWhitelist = _configManager.CurrentConfig.AllowScriptsWhitelist;
+            if (defaultWhitelist != null && defaultWhitelist.Count > 0)
+            {
+                _configManager.AppendAllowScripts(defaultWhitelist);
+            }
+            
             PrintEnvTable();
 
             AnsiConsole.MarkupLine("\n[grey]Type /help for commands, exit to quit[/]\n");
@@ -363,30 +370,54 @@ namespace SmartNPM_Installer.Services
                     return;
                 }
 
-                // 构建安装命令
-                var installCmd = CommandParser.BuildInstallCommand(parsed);
+                // 对于其他 npm 命令，直接执行
+                string installCmd;
+                if (parsed.Source == InstallSource.NpmOther)
+                {
+                    installCmd = input; // 直接使用原始命令
+                }
+                else
+                {
+                    // 构建安装命令
+                    installCmd = CommandParser.BuildInstallCommand(parsed);
+                }
+                
                 AnsiConsole.MarkupLine($"[grey]Executing: {installCmd}[/]");
 
                 // 创建安装执行器
                 var executor = new InstallExecutor(installCmd, AppContext.BaseDirectory, _logger);
                 
                 // 订阅输出事件
+                var capturedStderr = new System.Text.StringBuilder();
+                
                 executor.OnOutput += (output) =>
                 {
                     if (!string.IsNullOrWhiteSpace(output))
                     {
-                        // 检测进度
-                        if (output.Contains("idealTree") || output.Contains("reify"))
+                        // 检测 allow-scripts 警告（可能输出到 stdout）
+                        if (output.Contains("allowScripts", StringComparison.OrdinalIgnoreCase) ||
+                            output.Contains("allow-scripts", StringComparison.OrdinalIgnoreCase))
                         {
-                            AnsiConsole.MarkupLine($"[grey]  {output}[/]");
+                            capturedStderr.AppendLine(output);
+                            Console.ForegroundColor = ConsoleColor.Yellow;
+                            Console.WriteLine($"  [STDOUT-WARN] {output}");
+                            Console.ResetColor();
+                        }
+                        else if (output.Contains("deprecated"))
+                        {
+                            Console.ForegroundColor = ConsoleColor.DarkGray;
+                            Console.WriteLine($"  {output}");
+                            Console.ResetColor();
                         }
                         else if (output.Contains("added") && output.Contains("packages"))
                         {
-                            AnsiConsole.MarkupLine($"[green]  {output}[/]");
+                            Console.ForegroundColor = ConsoleColor.Green;
+                            Console.WriteLine($"  {output}");
+                            Console.ResetColor();
                         }
                         else
                         {
-                            AnsiConsole.MarkupLine($"  {output}");
+                            Console.WriteLine($"  {output}");
                         }
                     }
                 };
@@ -395,20 +426,10 @@ namespace SmartNPM_Installer.Services
                 {
                     if (!string.IsNullOrWhiteSpace(error))
                     {
-                        // 尝试错误自愈
-                        var healing = _errorHealer.Analyze(error);
-                        if (healing != null && healing.Matched)
-                        {
-                            AnsiConsole.MarkupLine($"[yellow]  Detected: {healing.Description}[/]");
-                            if (!healing.NeedsInteraction)
-                            {
-                                AnsiConsole.MarkupLine($"[yellow]  Auto-fixing...[/]");
-                            }
-                        }
-                        else
-                        {
-                            AnsiConsole.MarkupLine($"[red]  {error}[/]");
-                        }
+                        capturedStderr.AppendLine(error);
+                        Console.ForegroundColor = ConsoleColor.Red;
+                        Console.WriteLine($"  [STDERR] {error}");
+                        Console.ResetColor();
                     }
                 };
 
@@ -417,18 +438,57 @@ namespace SmartNPM_Installer.Services
 
                 if (result.Success)
                 {
-                    AnsiConsole.MarkupLine("[green]✓[/] Installation successful!");
-                    
-                    // 记录历史
-                    _installHistory.Add(new InstallHistory
+                    // 只有安装命令才检查 allow-scripts 和显示成功消息
+                    if (parsed.Source != InstallSource.NpmOther)
                     {
-                        PackageName = parsed.PackageName,
-                        Success = true,
-                        Timestamp = DateTime.Now
-                    });
+                        // 检查并自动添加新的 allow-scripts 包
+                        var stderr = capturedStderr.ToString();
+                        if (!string.IsNullOrEmpty(stderr) && 
+                            (stderr.Contains("allowScripts", StringComparison.OrdinalIgnoreCase) ||
+                             stderr.Contains("allow-scripts", StringComparison.OrdinalIgnoreCase)))
+                        {
+                            var newPackages = ExtractAllowScriptsPackages(stderr);
+                            if (newPackages.Count > 0)
+                            {
+                                _configManager.AppendAllowScripts(newPackages);
+                                AnsiConsole.MarkupLine($"[green]OK[/] Added {newPackages.Count} packages to allow-scripts whitelist");
+                            }
+                        }
 
-                    // 询问是否运行子命令
-                    if (!string.IsNullOrEmpty(parsed.SubCommand))
+                        AnsiConsole.MarkupLine("[green]OK[/] Installation successful!");
+                        
+                        // 记录历史
+                        _installHistory.Add(new InstallHistory
+                        {
+                            PackageName = parsed.PackageName,
+                            Success = true,
+                            Timestamp = DateTime.Now
+                        });
+
+                        // 检查是否有 npm 更新提示
+                        var output = result.StandardOutput ?? "";
+                        if (output.Contains("npm notice") && output.Contains("new major version"))
+                        {
+                            AnsiConsole.MarkupLine("[yellow]Detected npm update available[/]");
+                            if (AnsiConsole.Confirm("Update npm now?", true))
+                            {
+                                AnsiConsole.MarkupLine("[yellow]Updating npm...[/]");
+                                var updateResult = EnvScanner.RunCommand("cmd.exe", "/c npm install -g npm@latest --location=user");
+                                if (updateResult.ExitCode == 0)
+                                {
+                                    AnsiConsole.MarkupLine("[green]OK[/] npm updated successfully!");
+                                }
+                                else
+                                {
+                                    AnsiConsole.MarkupLine($"[red]XX[/] Update failed: {updateResult.Error}");
+                                }
+                            }
+                        }
+                    }
+
+                    // 只有安装命令才询问是否运行子命令
+                    if (parsed.Source != InstallSource.NpmOther && 
+                        !string.IsNullOrEmpty(parsed.SubCommand))
                     {
                         if (AnsiConsole.Confirm($"Run '{parsed.SubCommand}' now?", false))
                         {
@@ -503,6 +563,45 @@ namespace SmartNPM_Installer.Services
             {
                 // 忽略保存错误
             }
+        }
+
+        /// <summary>
+        /// 从 allow-scripts 警告中提取包名
+        /// </summary>
+        private List<string> ExtractAllowScriptsPackages(string stderr)
+        {
+            var packages = new List<string>();
+            var lines = stderr.Split('\n');
+            
+            foreach (var line in lines)
+            {
+                // 匹配格式: npm warn allow-scripts   @scope/package@version (postinstall: ...)
+                // 或者: npm warn allowScripts   package@version (postinstall: ...)
+                if ((line.Contains("allowScripts", StringComparison.OrdinalIgnoreCase) ||
+                     line.Contains("allow-scripts", StringComparison.OrdinalIgnoreCase)) &&
+                    line.Contains("@") &&
+                    !line.Contains("Run `npm") && // 排除提示行
+                    !line.Contains("npm config set") &&
+                    !line.Contains("to allow these scripts"))
+                {
+                    // 提取包名：匹配 @scope/package@version 或 package@version
+                    // 使用更宽松的正则
+                    var match = System.Text.RegularExpressions.Regex.Match(line, 
+                        @"(@[\w\-\.]+/[\w\-\.]+|[\w\-\.]+)@[\w\-\.]+");
+                    if (match.Success && match.Groups.Count > 1)
+                    {
+                        var pkgName = match.Groups[1].Value.Trim();
+                        if (!string.IsNullOrEmpty(pkgName) && 
+                            !packages.Contains(pkgName) &&
+                            !pkgName.Contains("npm"))
+                        {
+                            packages.Add(pkgName);
+                        }
+                    }
+                }
+            }
+            
+            return packages;
         }
     }
 

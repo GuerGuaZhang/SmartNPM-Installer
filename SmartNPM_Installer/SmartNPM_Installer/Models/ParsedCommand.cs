@@ -65,6 +65,11 @@ namespace SmartNPM_Installer.Models
         NpmInstall,
 
         /// <summary>
+        /// 用户输入其他 npm 命令（npm list, npm view 等）
+        /// </summary>
+        NpmOther,
+
+        /// <summary>
         /// 用户只输入了包名
         /// </summary>
         RawPackageName

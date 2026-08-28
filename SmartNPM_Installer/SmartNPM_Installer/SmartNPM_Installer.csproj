@@ -7,9 +7,11 @@
     <Nullable>enable</Nullable>
     <RootNamespace>SmartNPM_Installer</RootNamespace>
     <AssemblyName>SmartInstall</AssemblyName>
-    <Version>1.0.0</Version>
+    <Version>2.0.0</Version>
     <Authors>Smart NPM Installer Team</Authors>
-    <Description>Smart NPM Installer - 自动修复 npm 安装问题的智能工具</Description>
+    <Description>Smart NPM Installer - 智能 npm 包安装器，自动修复环境问题，一键完成安装</Description>
+    <ApplicationIcon>..\..\favicon.ico</ApplicationIcon>
+    <PackageIcon>..\..\favicon.ico</PackageIcon>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
@@ -24,6 +26,10 @@
 
   <ItemGroup>
     <PackageReference Include="Spectre.Console" Version="0.57.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\..\favicon.ico" Link="favicon.ico" />
   </ItemGroup>
 
 </Project>
