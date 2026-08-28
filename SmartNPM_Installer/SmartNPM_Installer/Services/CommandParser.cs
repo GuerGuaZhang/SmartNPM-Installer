@@ -151,7 +151,7 @@ namespace SmartNPM_Installer.Services
         /// <returns>完整的 npm install 命令</returns>
         public static string BuildInstallCommand(ParsedCommand command)
         {
-            var sb = new System.Text.StringBuilder("npm install -g ");
+            var sb = new System.Text.StringBuilder("npm install -g --allow-scripts ");
 
             if (command.IsScoped)
             {
