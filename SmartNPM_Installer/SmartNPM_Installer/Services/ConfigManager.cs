@@ -206,7 +206,7 @@ namespace SmartNPM_Installer.Services
         /// <summary>
         /// 备份 .npmrc 文件
         /// </summary>
-        private void BackupNpmrc()
+        public void BackupNpmrc()
         {
             if (!File.Exists(_npmrcPath))
                 return;

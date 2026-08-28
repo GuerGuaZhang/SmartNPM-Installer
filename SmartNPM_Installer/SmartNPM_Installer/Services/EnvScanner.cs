@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Text.RegularExpressions;
 using Microsoft.Win32;
+using Spectre.Console;
 using SmartNPM_Installer.Models;
 
 namespace SmartNPM_Installer.Services
@@ -12,6 +13,24 @@ namespace SmartNPM_Installer.Services
     /// </summary>
     public class EnvScanner
     {
+        /// <summary>
+        /// 国内镜像源列表
+        /// </summary>
+        private static readonly string[] MirrorDomains = new[]
+        {
+            "registry.npmmirror.com",
+            "registry.npm.taobao.org",
+            "npm.taobao.org",
+            "cnpmjs.org",
+            "registry.npm.cn",
+            "npm.mirrors.cloud.tencent.com"
+        };
+
+        /// <summary>
+        /// 默认国内镜像源
+        /// </summary>
+        public const string DefaultMirrorRegistry = "https://registry.npmmirror.com";
+
         /// <summary>
         /// 执行完整的环境扫描
         /// </summary>
@@ -28,18 +47,23 @@ namespace SmartNPM_Installer.Services
                 status.NodeVersion = nodeResult.Output.Trim();
             }
 
-            // 检测 npm
+            // 检测 npm（尝试多种方式）
             var npmResult = RunCommand("npm", "--version");
+            if (npmResult.ExitCode != 0 || string.IsNullOrWhiteSpace(npmResult.Output))
+            {
+                // 尝试通过 node 调用 npm
+                npmResult = RunCommand("node", "-e \"console.log(require('child_process').execSync('npm --version').toString().trim())\"");
+            }
             if (npmResult.ExitCode == 0 && !string.IsNullOrWhiteSpace(npmResult.Output))
             {
-                status.NpmVersion = npmResult.Output.Trim();
+                status.NpmVersion = npmResult.Output.Trim().Split('\n')[0].Trim();
             }
 
             // 检测当前 registry
             var registryResult = RunCommand("npm", "config get registry");
             if (registryResult.ExitCode == 0 && !string.IsNullOrWhiteSpace(registryResult.Output))
             {
-                status.CurrentRegistry = registryResult.Output.Trim();
+                status.CurrentRegistry = registryResult.Output.Trim().Split('\n')[0].Trim();
                 status.IsRegistryMirror = IsMirrorRegistry(status.CurrentRegistry);
             }
 
@@ -47,7 +71,7 @@ namespace SmartNPM_Installer.Services
             var allowScriptsResult = RunCommand("npm", "config get allow-scripts");
             if (allowScriptsResult.ExitCode == 0 && !string.IsNullOrWhiteSpace(allowScriptsResult.Output))
             {
-                status.CurrentAllowScripts = allowScriptsResult.Output.Trim();
+                status.CurrentAllowScripts = allowScriptsResult.Output.Trim().Split('\n')[0].Trim();
             }
 
             // 检测 Python
@@ -92,23 +116,44 @@ namespace SmartNPM_Installer.Services
         }
 
         /// <summary>
+        /// 自动切换到国内镜像源
+        /// </summary>
+        /// <param name="configManager">配置管理器</param>
+        /// <returns>是否切换成功</returns>
+        public static bool AutoSwitchToMirror(ConfigManager configManager)
+        {
+            var currentRegistry = configManager.CurrentConfig.Registry;
+            
+            // 如果已经是国内镜像，直接返回
+            if (IsMirrorRegistry(currentRegistry))
+                return true;
+
+            // 切换到国内镜像
+            AnsiConsole.MarkupLine("[yellow]检测到非国内镜像源，正在自动切换到 npmmirror...[/]");
+            
+            var result = RunCommand("npm", $"config set registry {DefaultMirrorRegistry} --location=user");
+            if (result.ExitCode == 0)
+            {
+                configManager.CurrentConfig.Registry = DefaultMirrorRegistry;
+                configManager.SaveConfig();
+                AnsiConsole.MarkupLine($"[green]✓[/] Registry 已切换到: {DefaultMirrorRegistry}");
+                return true;
+            }
+            else
+            {
+                AnsiConsole.MarkupLine($"[red]✗[/] 切换失败: {result.Error}");
+                return false;
+            }
+        }
+
+        /// <summary>
         /// 检查是否为国内镜像源
         /// </summary>
         /// <param name="registry">registry 地址</param>
         /// <returns>是否为镜像源</returns>
-        private static bool IsMirrorRegistry(string registry)
+        public static bool IsMirrorRegistry(string registry)
         {
-            var mirrorDomains = new[]
-            {
-                "registry.npmmirror.com",
-                "registry.npm.taobao.org",
-                "npm.taobao.org",
-                "cnpmjs.org",
-                "registry.npm.cn",
-                "npm.mirrors.cloud.tencent.com"
-            };
-
-            foreach (var domain in mirrorDomains)
+            foreach (var domain in MirrorDomains)
             {
                 if (registry.Contains(domain, StringComparison.OrdinalIgnoreCase))
                     return true;
@@ -160,7 +205,7 @@ namespace SmartNPM_Installer.Services
         /// <param name="fileName">命令文件名</param>
         /// <param name="arguments">命令参数</param>
         /// <returns>命令执行结果</returns>
-        private static (string Output, string Error, int ExitCode) RunCommand(string fileName, string arguments)
+        public static (string Output, string Error, int ExitCode) RunCommand(string fileName, string arguments)
         {
             try
             {
@@ -171,7 +216,11 @@ namespace SmartNPM_Installer.Services
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
-                    CreateNoWindow = true
+                    CreateNoWindow = true,
+                    // 增加环境变量路径，确保能找到 npm
+                    EnvironmentVariables = {
+                        ["PATH"] = Environment.GetEnvironmentVariable("PATH") + @";C:\Program Files\nodejs;C:\Program Files (x86)\nodejs"
+                    }
                 };
 
                 using var process = Process.Start(psi);
@@ -180,9 +229,9 @@ namespace SmartNPM_Installer.Services
 
                 var output = process.StandardOutput.ReadToEnd();
                 var error = process.StandardError.ReadToEnd();
-                process.WaitForExit();
+                process.WaitForExit(10000); // 10秒超时
 
-                return (output, error, process.ExitCode);
+                return (output.Trim(), error.Trim(), process.ExitCode);
             }
             catch (Exception ex)
             {
@@ -191,70 +240,69 @@ namespace SmartNPM_Installer.Services
         }
 
         /// <summary>
-        /// 格式化环境状态为表格字符串
+        /// 使用 Spectre.Console 打印环境状态表格
         /// </summary>
         /// <param name="status">环境状态</param>
-        /// <returns>格式化的表格字符串</returns>
-        public static string FormatEnvTable(EnvStatus status)
+        public static void PrintEnvTable(EnvStatus status)
         {
-            var lines = new System.Collections.Generic.List<string>
-            {
-                "┌─────────────────────┬──────────────────────────────┬────────┐",
-                "│ 项目                │ 状态                         │ 结果   │",
-                "├─────────────────────┼──────────────────────────────┼────────┤"
-            };
+            var table = new Table()
+                .Border(TableBorder.Rounded)
+                .BorderColor(Color.Grey)
+                .AddColumn(new TableColumn("[bold]Item[/]").Centered())
+                .AddColumn(new TableColumn("[bold]Status[/]"))
+                .AddColumn(new TableColumn("[bold]Result[/]").Centered());
 
             // Node.js
-            var nodeStatus = status.NodeInstalled ? status.NodeVersion ?? "已安装" : "未安装";
-            var nodeResult = status.NodeInstalled ? "✓" : "✗";
-            lines.Add($"│ Node.js             │ {nodeStatus,-28} │ {nodeResult,-6} │");
+            var nodeStatus = status.NodeInstalled ? status.NodeVersion ?? "[green]Installed[/]" : "[red]Not installed[/]";
+            var nodeResult = status.NodeInstalled ? "[green]✓[/]" : "[red]✗[/]";
+            table.AddRow("Node.js", nodeStatus, nodeResult);
 
             // npm
-            var npmStatus = status.NpmVersion ?? "未安装";
-            var npmResult = status.NpmVersion != null ? "✓" : "✗";
-            lines.Add($"│ npm                 │ {npmStatus,-28} │ {npmResult,-6} │");
+            var npmStatus = status.NpmVersion != null ? status.NpmVersion : "[red]Not installed[/]";
+            var npmResult = status.NpmVersion != null ? "[green]✓[/]" : "[red]✗[/]";
+            table.AddRow("npm", npmStatus, npmResult);
 
             // Registry
             var registryStatus = status.CurrentRegistry;
-            if (registryStatus.Length > 28)
-                registryStatus = "..." + registryStatus.Substring(registryStatus.Length - 25);
-            var registryResult = status.IsRegistryMirror ? "✓" : "⚠";
-            lines.Add($"│ Registry            │ {registryStatus,-28} │ {registryResult,-6} │");
+            if (registryStatus.Length > 35)
+                registryStatus = "..." + registryStatus.Substring(registryStatus.Length - 32);
+            var registryResult = status.IsRegistryMirror ? "[green]✓[/]" : "[yellow]⚠[/]";
+            table.AddRow("Registry", registryStatus, registryResult);
 
             // Allow-scripts
-            var allowScriptsStatus = "未配置";
+            var allowScriptsStatus = "Not configured";
             if (status.CurrentAllowScripts == "true")
-                allowScriptsStatus = "完全信任";
+                allowScriptsStatus = "[green]Fully trusted[/]";
             else if (!string.IsNullOrEmpty(status.CurrentAllowScripts))
-                allowScriptsStatus = $"已配置 {status.CurrentAllowScripts.Split(',').Length} 项白名单";
-            var allowScriptsResult = status.CurrentAllowScripts != null ? "✓" : "⚠";
-            lines.Add($"│ Allow-scripts       │ {allowScriptsStatus,-28} │ {allowScriptsResult,-6} │");
+                allowScriptsStatus = $"[green]Configured[/] ({status.CurrentAllowScripts.Split(',').Length} items)";
+            var allowScriptsResult = status.CurrentAllowScripts != null ? "[green]✓[/]" : "[yellow]⚠[/]";
+            table.AddRow("Allow-scripts", allowScriptsStatus, allowScriptsResult);
 
             // Python
-            var pythonStatus = status.HasPython ? "已安装" : "未安装";
-            var pythonResult = status.HasPython ? "✓" : "⚠";
+            var pythonStatus = status.HasPython ? "[green]Installed[/]" : "[yellow]Not installed[/]";
+            var pythonResult = status.HasPython ? "[green]✓[/]" : "[yellow]⚠[/]";
             if (status.HasPython && !string.IsNullOrEmpty(status.PythonPath))
             {
                 pythonStatus = status.PythonPath;
-                if (pythonStatus.Length > 28)
-                    pythonStatus = "..." + pythonStatus.Substring(pythonStatus.Length - 25);
+                if (pythonStatus.Length > 35)
+                    pythonStatus = "..." + pythonStatus.Substring(pythonStatus.Length - 32);
             }
-            lines.Add($"│ Python              │ {pythonStatus,-28} │ {pythonResult,-6} │");
+            table.AddRow("Python", pythonStatus, pythonResult);
 
             // Build Tools
-            var buildToolsStatus = status.HasBuildTools ? "已安装" : "未检测到";
-            var buildToolsResult = status.HasBuildTools ? "✓" : "⚠";
-            lines.Add($"│ VC++ Build Tools    │ {buildToolsStatus,-28} │ {buildToolsResult,-6} │");
+            var buildToolsStatus = status.HasBuildTools ? "[green]Installed[/]" : "[yellow]Not detected[/]";
+            var buildToolsResult = status.HasBuildTools ? "[green]✓[/]" : "[yellow]⚠[/]";
+            table.AddRow("VC++ Build Tools", buildToolsStatus, buildToolsResult);
 
-            lines.Add("└─────────────────────┴──────────────────────────────┴────────┘");
+            AnsiConsole.WriteLine();
+            AnsiConsole.MarkupLine("[bold blue][System Scan Results][/]");
+            AnsiConsole.Write(table);
 
             // HTTP 代理
             if (!string.IsNullOrEmpty(status.HttpProxy))
             {
-                lines.Add($"HTTP 代理: {status.HttpProxy}");
+                AnsiConsole.MarkupLine($"[grey]HTTP Proxy: {status.HttpProxy}[/]");
             }
-
-            return string.Join("\n", lines);
         }
     }
 }
